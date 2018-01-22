@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs" xmlns:sns="http://www.mulesoft.org/schema/mule/sns" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:mqtt="http://www.mulesoft.org/schema/mule/mqtt" xmlns:context="http://www.springframework.org/schema/context" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+http://www.mulesoft.org/schema/mule/mqtt http://www.mulesoft.org/schema/mule/mqtt/current/mule-mqtt.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/sns http://www.mulesoft.org/schema/mule/sns/current/mule-sns.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd">
+    <context:property-placeholder location="dev.properties"/>
+    <file:connector name="File" readFromDirectory="${file.in}" autoDelete="true" streaming="true" validateConnections="true" doc:name="File" workDirectory="${file.work}" writeToDirectory="${file.out}"/>
+    <mqtt:config name="MQTTPublish"  doc:name="MQTT" clientId="1111" password="artemis" username="artemis">
+        <mqtt:connection-pooling-profile initialisationPolicy="INITIALISE_ONE" exhaustedAction="WHEN_EXHAUSTED_GROW"/>
+        <reconnect frequency="10000" count="15"/>
+    </mqtt:config>
+    <mqtt:config name="MQTTSubscribe" clientId="2222" password="artemis" username="artemis" doc:name="MQTT">
+        <mqtt:connection-pooling-profile initialisationPolicy="INITIALISE_ONE" exhaustedAction="WHEN_EXHAUSTED_GROW"/>
+        <reconnect frequency="10000" count="15"/>
+    </mqtt:config>
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="80" doc:name="HTTP Listener Configuration"/>
+    <flow name="mule-poc-mqttPublishFlow">
+        <file:inbound-endpoint path="${file.in}" connector-ref="File" responseTimeout="10000"  doc:name="File" />
+        <mqtt:publish config-ref="MQTTPublish" topicName="pub-sub"  doc:name="MQTTPublish" qos="ONLY_ONCE"/>
+        <logger message="#[message]" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="mule-poc-mqttSubscribeFlow">
+        <mqtt:subscribe config-ref="MQTTSubscribe" topicFilter="pub-sub" qos="ONLY_ONCE" doc:name="MQTTSubscribe (Streaming)"/>
+        <logger message="#[message]" level="INFO" doc:name="Logger"/>
+        <file:outbound-endpoint path="${file.out}" connector-ref="File" responseTimeout="10000" doc:name="File"/>
+    </flow>
+</mule>
